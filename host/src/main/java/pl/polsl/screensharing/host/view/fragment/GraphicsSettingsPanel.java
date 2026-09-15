@@ -15,7 +15,7 @@ public class GraphicsSettingsPanel extends AbstractScreenCaptureRightPanel {
     private final JComboBox<QualityLevel> qualityLevelComboBox;
 
     protected GraphicsSettingsPanel(HostWindow hostWindow) {
-        super(hostWindow, "Graptics settings");
+        super(hostWindow, "Graphics settings");
         controller = new GraphicsSettingsController(hostWindow, this);
 
         selectedQualityLabel = new JLabel("Select quality");

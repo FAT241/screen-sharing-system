@@ -2,6 +2,7 @@ package pl.polsl.screensharing.lib.gui.component;
 
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 
 import javax.swing.*;
 import java.awt.*;
@@ -21,6 +22,8 @@ public class JAppInfoBlock {
         this.normalFont = new Font(labelFont.getName(), Font.PLAIN, labelFont.getSize());
         this.italicFont = new Font(labelFont.getName(), Font.ITALIC, labelFont.getSize());
         this.label.setFont(normalFont);
+        this.label.setForeground(UiTheme.TEXT_SECONDARY);
+        this.value.setForeground(UiTheme.TEXT_PRIMARY);
     }
 
     public JAppInfoBlock(String label) {
