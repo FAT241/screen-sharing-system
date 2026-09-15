@@ -7,6 +7,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 import pl.polsl.screensharing.lib.AppType;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.icon.AppIcon;
 
 import javax.swing.*;
@@ -54,7 +55,8 @@ public class FileUtils {
             }
             final String rawBuffer = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
             final StringJoiner joiner = new StringJoiner(StringUtils.EMPTY)
-                .add(String.format("<html><div style='%s;'>", alignment.getHtml()))
+                .add(String.format("<html><div style='%s color: %s; font-size: 12px;'>",
+                    alignment.getHtml(), UiTheme.hex(UiTheme.TEXT_PRIMARY)))
                 .add(rawBuffer)
                 .add("</div></html>");
             log.info("Successfully load {} file from asset resources directory.", assetName);

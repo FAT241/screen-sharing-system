@@ -6,6 +6,7 @@ import pl.polsl.screensharing.host.state.HostState;
 import pl.polsl.screensharing.host.view.HostWindow;
 import pl.polsl.screensharing.lib.Utils;
 import pl.polsl.screensharing.lib.gui.AbstractBottomInfobar;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.gui.fragment.JAppActionRectInfo;
 
 import javax.swing.*;
@@ -39,10 +40,11 @@ public class BottomInfobar extends AbstractBottomInfobar {
         initObservables();
 
         sessionStatusTextLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 3));
+        sessionStatusTextLabel.setForeground(UiTheme.TEXT_SECONDARY);
         streamingTimeLabel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 20));
         fpsInfoLabel.setBorder(marginRight);
 
-        sessionStatusLabel.setForeground(Color.GRAY);
+        sessionStatusLabel.setForeground(UiTheme.TEXT_SECONDARY);
 
         stateCompoundPanel.add(sessionStatusTextLabel);
         stateCompoundPanel.add(sessionStatusLabel);

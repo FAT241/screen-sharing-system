@@ -62,9 +62,6 @@ public class HostWindow extends AbstractRootFrame {
         sessionInfoDialogWindow = new SessionInfoDialogWindow(this);
 
         initObservables();
-
-        setResizable(false);
-        setMaximumSize(AppType.HOST.getRootWindowSize());
     }
 
     @Override

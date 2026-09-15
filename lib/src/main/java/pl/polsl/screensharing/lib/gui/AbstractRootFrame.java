@@ -31,7 +31,7 @@ public abstract class AbstractRootFrame extends JFrame {
         imageIconOptional.ifPresent(this::setIconImage);
 
         setSize(size);
-        setMinimumSize(size);
+        setMinimumSize(UiScale.scale(new Dimension(960, 540)));
         setLocation(getMotherScreenCenter());
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         addWindowListener(new GuiWindowAdapter(this, disposableProvider));
@@ -43,10 +43,10 @@ public abstract class AbstractRootFrame extends JFrame {
     }
 
     private Point getMotherScreenCenter() {
-        final Dimension dimension = Toolkit.getDefaultToolkit().getScreenSize();
-        final int x = dimension.width / 2 - getWidth() / 2;
-        final int y = dimension.height / 2 - getHeight() / 2;
-        return new Point(x, y);
+        final Rectangle bounds = getGraphicsConfiguration().getBounds();
+        final int x = bounds.x + bounds.width / 2 - getWidth() / 2;
+        final int y = bounds.y + bounds.height / 2 - getHeight() / 2;
+        return new Point(Math.max(x, bounds.x), Math.max(y, bounds.y));
     }
 
     protected abstract void extendsFrame(JFrame frame, JPanel rootPanel);

@@ -11,12 +11,11 @@ public abstract class AbstractTextInfoPanel extends JPanel {
     protected AbstractTextInfoPanel(String textContent, boolean isVisible) {
         setLayout(new BorderLayout());
         setVisible(isVisible);
-        setBackground(Color.GRAY);
+        setBackground(UiTheme.SURFACE_LIGHT);
 
         textLabel = new JLabel(textContent);
         textLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        textLabel.setForeground(Color.WHITE);
-        textLabel.setFont(new Font(new JLabel().getFont().getFontName(), Font.PLAIN, 15));
+        textLabel.setForeground(UiTheme.TEXT_SECONDARY);
 
         add(textLabel);
     }

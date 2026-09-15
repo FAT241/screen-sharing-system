@@ -2,6 +2,7 @@ package pl.polsl.screensharing.host.state;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.state.ColoredLabelState;
 
 import java.awt.*;
@@ -9,8 +10,8 @@ import java.awt.*;
 @Getter
 @RequiredArgsConstructor
 public enum StreamingState implements ColoredLabelState {
-    STREAMING("streaming", Color.RED),
-    STOPPED("stopped", Color.GRAY),
+    STREAMING("streaming", UiTheme.DANGER),
+    STOPPED("stopped", UiTheme.TEXT_SECONDARY),
     ;
 
     private final String state;

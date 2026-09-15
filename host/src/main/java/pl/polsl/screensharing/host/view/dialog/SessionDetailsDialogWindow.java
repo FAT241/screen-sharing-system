@@ -94,6 +94,8 @@ public class SessionDetailsDialogWindow extends AbstractPopupDialog {
         cancelButton = new JAppIconButton("Cancel", LibIcon.CANCEL);
         saveDetailsButton = new JAppIconButton("Save", LibIcon.SAVE);
 
+        connectButton.setAsPrimaryButton();
+
         initObservables();
 
         ipAddressTextField.getDocument().addDocumentListener(documentListener);

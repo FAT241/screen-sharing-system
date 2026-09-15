@@ -8,9 +8,12 @@ import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.DefaultXYItemRenderer;
+import org.jfree.chart.renderer.xy.XYItemRenderer;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import pl.polsl.screensharing.lib.gui.AbstractTabbedPanel;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.state.AbstractDisposableProvider;
 
 import java.awt.*;
@@ -42,17 +45,35 @@ public class JAppTabbedDataChartPanel extends AbstractTabbedPanel {
         chart = ChartFactory.createXYLineChart(null, "Time (s)", "Data (kb)", dataset,
             PlotOrientation.VERTICAL, false, false, false);
 
+        chart.setBackgroundPaint(UiTheme.BASE);
+
         domainAxis = (NumberAxis) chart.getXYPlot().getDomainAxis();
         domainAxis.setAutoRange(true);
         domainAxis.setRange(0, X_TIME_MAX_DATA_SERIES);
         domainAxis.setTickLabelsVisible(false);
+        domainAxis.setAxisLinePaint(UiTheme.BORDER);
+        domainAxis.setTickLabelPaint(UiTheme.TEXT_SECONDARY);
+        domainAxis.setLabelPaint(UiTheme.TEXT_SECONDARY);
+
+        final NumberAxis rangeAxis = (NumberAxis) chart.getXYPlot().getRangeAxis();
+        rangeAxis.setAxisLinePaint(UiTheme.BORDER);
+        rangeAxis.setTickLabelPaint(UiTheme.TEXT_SECONDARY);
+        rangeAxis.setLabelPaint(UiTheme.TEXT_SECONDARY);
 
         plot = (XYPlot) chart.getPlot();
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainGridlinePaint(Color.GRAY);
-        plot.setRangeGridlinePaint(Color.GRAY);
+        plot.setBackgroundPaint(UiTheme.SURFACE);
+        plot.setDomainGridlinePaint(UiTheme.BORDER);
+        plot.setRangeGridlinePaint(UiTheme.BORDER);
+        plot.setDomainGridlineStroke(new BasicStroke(0.5f));
+        plot.setRangeGridlineStroke(new BasicStroke(0.5f));
+
+        final XYItemRenderer renderer = new DefaultXYItemRenderer();
+        renderer.setSeriesPaint(0, UiTheme.ACCENT);
+        renderer.setSeriesStroke(0, new BasicStroke(2f));
+        plot.setRenderer(renderer);
 
         chartPanel = new ChartPanel(chart);
+        chartPanel.setBackground(UiTheme.BASE);
 
         initObservables();
 

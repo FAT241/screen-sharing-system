@@ -1,6 +1,7 @@
 package pl.polsl.screensharing.lib.gui.fragment;
 
 import io.reactivex.rxjava3.core.Observable;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.state.AbstractDisposableProvider;
 import pl.polsl.screensharing.lib.state.ColoredLabelState;
 
@@ -14,7 +15,7 @@ public class JAppActionRectInfo extends JPanel {
         Observable<? extends ColoredLabelState> state$,
         AbstractDisposableProvider disposableProvider
     ) {
-        selectedColor = Color.GRAY;
+        selectedColor = UiTheme.TEXT_SECONDARY;
         disposableProvider.wrapAsDisposable(state$, color -> {
             selectedColor = color.getColor();
             repaint();

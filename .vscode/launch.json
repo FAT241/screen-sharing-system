@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run Host",
+            "request": "launch",
+            "mainClass": "pl.polsl.screensharing.host.HostMain",
+            "classPaths": ["D:/OpenCode/LTM_PROJECT_FINAL_EXAM/screen-sharing-system/.bin/host.jar"],
+            "vmArgs": "-Xms512m -Xmx2g"
+        },
+        {
+            "type": "java",
+            "name": "Run Client",
+            "request": "launch",
+            "mainClass": "pl.polsl.screensharing.client.ClientMain",
+            "classPaths": ["D:/OpenCode/LTM_PROJECT_FINAL_EXAM/screen-sharing-system/.bin/client.jar"],
+            "vmArgs": "-Xms512m -Xmx1g"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Run Host + Client",
+            "configurations": ["Run Host", "Run Client"]
+        }
+    ]
+}

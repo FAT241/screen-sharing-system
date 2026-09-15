@@ -61,6 +61,19 @@ $ git clone https://github.com/milosz08/screen-sharing-system
 
 ## Build and run
 
+> [!TIP]
+> **Cách chạy nhanh nhất (Windows):** double-click vào `start.cmd` ở thư mục gốc
+> rồi chọn `1` (Host - server) hoặc `2` (Client). Nếu JAR chưa có, launcher
+> tự động build. Hoặc dùng trực tiếp `start-host.cmd` / `start-client.cmd`.
+
+1. Build lại toàn bộ project (CLI):
+
+```bash
+.\build.cmd    # Windows (tự tìm JDK, build host.jar + client.jar vào .bin/)
+```
+
+Hoặc bằng Maven thủ công:
+
 1. Firstly, clean output `.bin` directory via:
 
 ```bash
@@ -98,6 +111,14 @@ $ ./mvnw package -pl client,host      # for UNIX
 
 ```bash
 $ java -Xms<memory> -Xmx<memory> -jar <module>.jar
+```
+
+or use the one-click launchers in the project root:
+
+```bash
+start.cmd          # menu chọn Host / Client / rebuild
+start-host.cmd     # chạy server (Host)
+start-client.cmd   # chạy client
 ```
 
 where:

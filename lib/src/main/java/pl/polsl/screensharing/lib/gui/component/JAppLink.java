@@ -1,6 +1,7 @@
 package pl.polsl.screensharing.lib.gui.component;
 
 import lombok.extern.slf4j.Slf4j;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.gui.lambda.MouseClickEvent;
 
 import javax.swing.*;
@@ -15,8 +16,8 @@ public class JAppLink extends JLabel {
 
     public JAppLink(String link, String placeholder) {
         uri = generateUri(link);
-        setText(String.format("<html><a href='%s'>%s</a></html>", link, placeholder));
-        setForeground(Color.BLUE);
+        setText(String.format("<html><a href='%s' style='color:%s'>%s</a></html>", link, UiTheme.hex(UiTheme.ACCENT), placeholder));
+        setForeground(UiTheme.ACCENT);
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         addMouseListener(new MouseClickEvent(this::openUri));
     }

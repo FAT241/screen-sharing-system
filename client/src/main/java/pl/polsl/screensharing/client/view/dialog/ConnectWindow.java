@@ -138,6 +138,8 @@ public class ConnectWindow extends AbstractPopupDialog {
         saveDetailsButton = new JAppIconButton("Save", LibIcon.SAVE);
         addToListCheckbox = new JCheckBox("Add to list", true);
 
+        connectButton.setAsPrimaryButton();
+
         descriptionLabel = new JLabel("Connection description (optional)");
         descriptionTextArea = new JAppTextArea(3, 30, 100);
         descriptionScrollPane = new JScrollPane(descriptionTextArea);

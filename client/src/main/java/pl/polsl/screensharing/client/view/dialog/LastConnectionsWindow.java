@@ -55,6 +55,8 @@ public class LastConnectionsWindow extends AbstractPopupDialog {
         removeAllRowsButton = new JAppIconButton("Remove all", LibIcon.DELETE_TABLE);
         cancelButton = new JAppIconButton("Cancel", LibIcon.CANCEL);
 
+        connectButton.setAsPrimaryButton();
+
         initObservables();
 
         connectButton.addActionListener(e -> controller.createConnection());

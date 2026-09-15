@@ -6,6 +6,7 @@ import pl.polsl.screensharing.client.state.ClientState;
 import pl.polsl.screensharing.client.view.ClientWindow;
 import pl.polsl.screensharing.lib.Utils;
 import pl.polsl.screensharing.lib.gui.AbstractBottomInfobar;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 
 import javax.swing.*;
 import java.awt.*;
@@ -34,8 +35,9 @@ public class BottomInfobar extends AbstractBottomInfobar {
         initObservables();
 
         connectionStatusTextLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 3));
+        connectionStatusTextLabel.setForeground(UiTheme.TEXT_SECONDARY);
         connectionStatusLabel.setBorder(marginRight);
-        connectionStatusLabel.setForeground(Color.GRAY);
+        connectionStatusLabel.setForeground(UiTheme.TEXT_SECONDARY);
         lostFramesCountLabel.setBorder(marginRight);
 
         stateCompoundPanel.add(connectionStatusTextLabel);

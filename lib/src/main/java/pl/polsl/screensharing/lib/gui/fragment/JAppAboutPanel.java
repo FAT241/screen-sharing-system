@@ -6,6 +6,8 @@ import pl.polsl.screensharing.lib.AppType;
 import pl.polsl.screensharing.lib.SystemProp;
 import pl.polsl.screensharing.lib.file.Alignment;
 import pl.polsl.screensharing.lib.file.FileUtils;
+import pl.polsl.screensharing.lib.gui.UiScale;
+import pl.polsl.screensharing.lib.gui.UiTheme;
 import pl.polsl.screensharing.lib.gui.component.JAppLink;
 
 import javax.imageio.ImageIO;
@@ -45,8 +47,8 @@ public class JAppAboutPanel extends JPanel {
         iconsLinkLabel = new JAppLink("https://www.microsoft.com/en-us/download/details.aspx?id=35825", "Icons by MS Visual Studio Icons");
         jvmProperties = new JLabel(generateJvmProperties());
 
-        titleLabel.setFont(new Font(titleLabel.getFont().getName(), Font.BOLD, 16));
-        jvmProperties.setForeground(Color.GRAY);
+        titleLabel.setFont(new Font(titleLabel.getFont().getName(), Font.BOLD, UiScale.scale(16)));
+        jvmProperties.setForeground(UiTheme.TEXT_SECONDARY);
 
         setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 
