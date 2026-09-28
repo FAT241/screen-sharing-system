@@ -147,7 +147,7 @@ public class ClientThread extends Thread {
                     final ConnectedClientInfo connectedClientInfo = ConnectedClientInfo.builder()
                         .clientThread(this)
                         .username(decryptedObj.getUsername())
-                        .ipAddress(decryptedObj.getIpAddress())
+                        .ipAddress(socket.getInetAddress().getHostAddress())
                         .udpPort(decryptedObj.getUdpPort())
                         .build();
 
