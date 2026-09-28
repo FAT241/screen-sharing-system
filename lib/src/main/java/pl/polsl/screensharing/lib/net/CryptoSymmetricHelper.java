@@ -8,7 +8,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.SecureRandom;
 
 import static pl.polsl.screensharing.lib.SharedConstants.IV_SIZE;
-import static pl.polsl.screensharing.lib.SharedConstants.PACKAGE_SIZE;
 
 @Getter
 public class CryptoSymmetricHelper {
@@ -24,18 +23,17 @@ public class CryptoSymmetricHelper {
         cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, secureRandom);
         final byte[] iv = cipher.getIV();
         final byte[] encrypted = cipher.doFinal(rawData);
-        // dodanie IV wygenerowanego losowo do zaszyfrowanych danych
-        System.arraycopy(iv, 0, encrypted, encrypted.length - iv.length, iv.length);
-        return encrypted;
+        final byte[] encryptedWithIv = new byte[encrypted.length + iv.length];
+        System.arraycopy(encrypted, 0, encryptedWithIv, 0, encrypted.length);
+        System.arraycopy(iv, 0, encryptedWithIv, encrypted.length, iv.length);
+        return encryptedWithIv;
     }
 
     public byte[] decrypt(byte[] data, int length) throws Exception {
-        byte[] iv = new byte[IV_SIZE];
-        byte[] encryptedWithoutIv = new byte[PACKAGE_SIZE];
-        // przenoszenie IV do tablicy iv
+        final byte[] iv = new byte[IV_SIZE];
+        final byte[] encryptedWithoutIv = new byte[length - iv.length];
         System.arraycopy(data, length - iv.length, iv, 0, iv.length);
         cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, new IvParameterSpec(iv));
-        // odszyfrowanie z przesunięciem uwzględniającym wektor IV
         cipher.doFinal(data, 0, length - iv.length, encryptedWithoutIv);
         return encryptedWithoutIv;
     }

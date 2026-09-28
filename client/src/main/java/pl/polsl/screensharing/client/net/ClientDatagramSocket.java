@@ -19,6 +19,7 @@ import java.net.DatagramSocket;
 
 import static pl.polsl.screensharing.lib.SharedConstants.BILION;
 import static pl.polsl.screensharing.lib.SharedConstants.FRAME_SIZE;
+import static pl.polsl.screensharing.lib.SharedConstants.IV_SIZE;
 
 @Slf4j
 public class ClientDatagramSocket extends AbstractDatagramSocketThread {
@@ -46,7 +47,7 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
 
         final int debugBytesLength = 2; // ilość bajtów debugujących
         // bufor na dane przychodzące (dane + bufor debugujący + IV)
-        byte[] receiveBuffer = new byte[FRAME_SIZE];
+        byte[] receiveBuffer = new byte[FRAME_SIZE + IV_SIZE];
         byte countOfPackages; // liczba pakietów uzyskana przez obiornik
         byte packageIteration; // iterator pakietów uzyskany przez obiornik
         boolean isCorrupted = false;
