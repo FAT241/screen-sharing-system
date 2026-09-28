@@ -18,7 +18,15 @@ exit /b 1
 
 :java_ok
 echo JAVA_HOME = %JAVA_HOME%
-echo Build project, xin cho giay lat...
+echo [1/2] Build + cai dat thu vien dung chung (lib)...
+call "%~dp0mvnw.cmd" -q clean install -pl lib -DskipTests
+if errorlevel 1 (
+    echo Build that bai o buoc 1 - lib!
+    pause
+    exit /b 1
+)
+
+echo [2/2] Build host + client...
 call "%~dp0mvnw.cmd" -q clean package -pl client,host -DskipTests
 if errorlevel 1 (
     echo Build that bai!
