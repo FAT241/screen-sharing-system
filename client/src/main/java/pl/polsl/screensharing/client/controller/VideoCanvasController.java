@@ -2,7 +2,6 @@ package pl.polsl.screensharing.client.controller;
 
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import org.imgscalr.Scalr;
 import pl.polsl.screensharing.client.view.fragment.VideoCanvas;
 import pl.polsl.screensharing.client.view.tabbed.TabbedVideoStreamPanel;
@@ -13,7 +12,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
-@Slf4j
 public class VideoCanvasController {
     private final VideoCanvas videoCanvas;
     private final TabbedVideoStreamPanel tabbedVideoStreamPanel;
@@ -22,7 +20,12 @@ public class VideoCanvasController {
     @Setter
     private volatile BufferedImage receivedImage;
 
-    private int diagCounter;
+    private double aspectRatio = SharedConstants.DEFAULT_ASPECT_RATIO;
+
+    private BufferedImage scaledImage;
+    private BufferedImage scaledSource;
+    private int scaledWidth = -1;
+    private int scaledHeight = -1;
 
     public VideoCanvasController(VideoCanvas videoCanvas, TabbedVideoStreamPanel tabbedVideoStreamPanel) {
         this.videoCanvas = videoCanvas;
@@ -32,25 +35,25 @@ public class VideoCanvasController {
         tabbedVideoStreamPanel.getVideoStreamHolder().addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(final java.awt.event.ComponentEvent e) {
-                onResizeWithAspectRatio(SharedConstants.DEFAULT_ASPECT_RATIO);
+                onResizeWithAspectRatio(aspectRatio);
             }
         });
     }
 
-    public void onResizeWithAspectRatio(double aspectRatio) {
+    public void onResizeWithAspectRatio(double newAspectRatio) {
         final JPanel videoFrameHolder = tabbedVideoStreamPanel.getVideoStreamHolder();
         final Dimension size = Utils
-            .calcSizeBaseAspectRatio(videoFrameHolder, aspectRatio);
+            .calcSizeBaseAspectRatio(videoFrameHolder, newAspectRatio);
         if (videoCanvas == null || tabbedVideoStreamPanel.getConnectionStatusPanel() == null) {
             return;
         }
         // setting a preferred size triggers a resize on the holder, which calls back into here;
         // bailing out on an unchanged size keeps that from becoming a layout loop
         if (size.equals(videoCanvas.getPreferredSize())) {
+            aspectRatio = newAspectRatio;
             return;
         }
-        log.info("[DIAG] onResize aspectRatio={} holder={}x{} -> size={}x{}",
-            aspectRatio, videoFrameHolder.getWidth(), videoFrameHolder.getHeight(), size.width, size.height);
+        aspectRatio = newAspectRatio;
         videoCanvas.setPreferredSize(size);
         tabbedVideoStreamPanel.getConnectionStatusPanel().setPreferredSize(size);
         videoFrameHolder.revalidate();
@@ -71,11 +74,14 @@ public class VideoCanvasController {
             width = image.getWidth();
             height = image.getHeight();
         }
-        if (++diagCounter % 60 == 0) {
-            log.info("[DIAG] drawContent canvas={}x{} draw={}x{} image={}x{} visible={}",
-                videoCanvas.getWidth(), videoCanvas.getHeight(), width, height,
-                image.getWidth(), image.getHeight(), videoCanvas.isVisible());
+        // resizing a full frame is expensive, and paintComponent runs on every repaint, so
+        // only resample when the frame or the target size actually changed
+        if (image != scaledSource || width != scaledWidth || height != scaledHeight) {
+            scaledImage = Scalr.resize(image, width, height);
+            scaledSource = image;
+            scaledWidth = width;
+            scaledHeight = height;
         }
-        graphics.drawImage(Scalr.resize(image, width, height), 0, 0, videoCanvas);
+        graphics.drawImage(scaledImage, 0, 0, videoCanvas);
     }
 }

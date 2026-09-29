@@ -68,6 +68,7 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
 
         long lastTime = System.nanoTime();
         long currentTime;
+        long frameStartTime = System.nanoTime();
         long timer = 0, logTimer = 0;
         long sentBytes = 0;
 
@@ -86,6 +87,7 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
                     compressedData = loadImage();
                     unprocessedDataLength = compressedData.length;
                     countOfPackages = (byte) Math.ceil((double) compressedData.length / lengthWithoutIV);
+                    frameStartTime = System.nanoTime();
                 }
                 // przesyłaj pakiety dopóki ilość nieprzetworzonych bajtów będzie większa od rozmiaru ramki bez
                 // bajtów debugujących
@@ -119,6 +121,13 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
                     packageIteration = 1;
                 }
                 sleep(1);
+                // Capture and encode run back to back, which floods the link and starves the
+                // encoder, so pace the loop to a fixed frame budget.
+                final long frameBudget = BILION / TARGET_FPS;
+                final long frameElapsed = System.nanoTime() - frameStartTime;
+                if (frameElapsed < frameBudget) {
+                    sleep((frameBudget - frameElapsed) / 1_000_000L);
+                }
             } catch (SocketTimeoutException | PortUnreachableException ex) {
                 final String message = ex.getMessage();
                 SwingUtilities.invokeLater(

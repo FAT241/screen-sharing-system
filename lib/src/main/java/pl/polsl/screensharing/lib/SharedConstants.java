@@ -14,6 +14,7 @@ public class SharedConstants {
     public static final double DEFAULT_ASPECT_RATIO = 16.0 / 9.0;
     public static final String PASSWORD_REPLACEMENT = "*********";
     public static final int FRAME_SIZE = 49_152; // 48kb
+    public static final int TARGET_FPS = 20;
     public static final int AES_KEY_SIZE = 128; // 128bit
     public static final int IV_SIZE = AES_KEY_SIZE / 8;
     public static final int PACKAGE_SIZE = FRAME_SIZE - IV_SIZE;
