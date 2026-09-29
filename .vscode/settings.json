@@ -1,10 +1,4 @@
 {
-    "java.configuration.runtimes": [
-        {
-            "name": "JavaSE-21",
-            "path": "D:\\Java",
-            "default": true
-        }
-    ],
-    "java.jdt.ls.java.home": "D:\\Java"
+    "java.jdt.ls.java.home": "${env:JAVA_HOME}",
+    "java.configuration.updateBuildConfiguration": "disabled"
 }
