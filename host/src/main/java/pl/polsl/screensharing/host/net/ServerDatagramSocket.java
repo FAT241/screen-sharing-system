@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.PortUnreachableException;
 import java.net.SocketTimeoutException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
@@ -32,6 +34,7 @@ import static pl.polsl.screensharing.lib.SharedConstants.*;
 
 @Slf4j
 public class ServerDatagramSocket extends AbstractDatagramSocketThread {
+    private int dumpCounter;
     private final HostWindow hostWindow;
     @Getter
     private final HostState hostState;
@@ -85,6 +88,7 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
             try {
                 if (compressedData == null) {
                     compressedData = loadImage();
+                    dumpFrame(compressedData);
                     unprocessedDataLength = compressedData.length;
                     countOfPackages = (byte) Math.ceil((double) compressedData.length / lengthWithoutIV);
                     frameStartTime = System.nanoTime();
@@ -203,6 +207,24 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
                 jpgWriter.dispose();
             }
             return compressed.toByteArray();
+        }
+    }
+
+    /**
+     * Diagnostic escape hatch: dump the exact JPEG bytes that go on the wire, so a corrupt
+     * image can be attributed to capture/encode rather than to the transport.
+     * Enable with -Dscreensharing.dumpFrames=true.
+     */
+    private void dumpFrame(byte[] jpeg) {
+        if (!Boolean.getBoolean("screensharing.dumpFrames")) {
+            return;
+        }
+        try {
+            final Path dir = Path.of(".logs", "frames");
+            Files.createDirectories(dir);
+            Files.write(dir.resolve("frame-" + System.currentTimeMillis() + "-" + (dumpCounter++) + ".jpg"), jpeg);
+        } catch (IOException ex) {
+            log.warn("Could not dump frame: {}", ex.getMessage());
         }
     }
 

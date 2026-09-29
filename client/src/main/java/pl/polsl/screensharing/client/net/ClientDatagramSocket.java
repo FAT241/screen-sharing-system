@@ -23,6 +23,7 @@ import java.util.Arrays;
 import static pl.polsl.screensharing.lib.SharedConstants.BILION;
 import static pl.polsl.screensharing.lib.SharedConstants.FRAME_SIZE;
 import static pl.polsl.screensharing.lib.SharedConstants.IV_SIZE;
+import static pl.polsl.screensharing.lib.SharedConstants.PACKAGE_SIZE;
 
 @Slf4j
 public class ClientDatagramSocket extends AbstractDatagramSocketThread {
@@ -51,6 +52,7 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
         log.info("Started datagram thread with TID {}", getName());
 
         final int debugBytesLength = 2; // ilość bajtów debugujących
+        final int payloadStride = PACKAGE_SIZE - debugBytesLength;
         // bufor na dane przychodzące (dane + bufor debugujący + IV)
         byte[] receiveBuffer = new byte[FRAME_SIZE + IV_SIZE];
         byte countOfPackages; // liczba pakietów uzyskana przez obiornik
@@ -122,9 +124,12 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
                 if (index < 0 || index >= countOfPackages) {
                     continue;
                 }
-                final int dataLength = decrypted.length - debugBytesLength;
-                final int offset = index * FRAME_SIZE;
-                if (offset + dataLength > frameBuffer.length) {
+                // every packet carries a trailing IV-sized pad, which is not image data, and
+                // only the last packet is short. The stride is therefore the full payload
+                // minus the debug bytes, so consecutive packets stay gapless.
+                final int dataLength = decrypted.length - debugBytesLength - IV_SIZE;
+                final int offset = index * payloadStride;
+                if (dataLength <= 0 || offset + dataLength > frameBuffer.length) {
                     continue; // niespójne z deklarowaną liczbą pakietów
                 }
                 if (!receivedFlags[index]) {
