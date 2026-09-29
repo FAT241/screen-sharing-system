@@ -11,6 +11,8 @@ import pl.polsl.screensharing.lib.SharedConstants;
 import pl.polsl.screensharing.lib.UnoperableException;
 import pl.polsl.screensharing.lib.net.AbstractDatagramSocketThread;
 
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+
 import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -28,14 +30,17 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
     private final VideoCanvasController videoCanvasController;
 
     private VisibilityState visibilityState;
+    private final CompositeDisposable disposables = new CompositeDisposable();
+    private final int udpPort;
 
     public ClientDatagramSocket(
-        ClientWindow clientWindow, VideoCanvas videoCanvas, VideoCanvasController videoCanvasController
+        ClientWindow clientWindow, VideoCanvas videoCanvas, VideoCanvasController videoCanvasController, int udpPort
     ) {
         super();
         clientState = clientWindow.getClientState();
         this.videoCanvas = videoCanvas;
         this.videoCanvasController = videoCanvasController;
+        this.udpPort = udpPort;
         visibilityState = VisibilityState.WAITING_FOR_CONNECTION;
         initObservables();
     }
@@ -95,6 +100,14 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
                     }
                 }
 
+                // resync: jeśli otrzymano pierwszy fragment nowej klatki,
+                // ale bufor nie jest pusty (poprzednia klatka niekompletna) — porzuć starą klatkę
+                if (packageIteration == 1 && receivedDataBuffer.size() > 0) {
+                    receivedDataBuffer.reset();
+                    isCorrupted = false;
+                    corruptedFrames++;
+                }
+
                 // dodaj odszyfrowane dane z pominięciem bajtów debugujących i 128 bitowego IV do bufora
                 receivedDataBuffer.write(decrypted, debugBytesLength,
                     decrypted.length - debugBytesLength);
@@ -120,7 +133,14 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
                     isCorrupted = false;
                     receivedDataBuffer.reset(); // wyczyść bufor na fragmenty klatek
                 }
+            } catch (java.net.SocketTimeoutException ex) {
+                log.debug("UDP receive timeout, waiting for data...");
+                isCorrupted = false;
+                receivedDataBuffer.reset();
+                isStarted = false;
+                prevPackageIteration = 1;
             } catch (Exception ex) {
+                log.warn("Error receiving UDP frame: {}", ex.getMessage());
                 isCorrupted = false;
                 receivedDataBuffer.reset();
             }
@@ -143,10 +163,10 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
     }
 
     @Override
-    public void createDatagramSocket(byte[] secretKey, int port) {
+    public void createDatagramSocket(byte[] secretKey) {
         try {
             cryptoSymmetricHelper.init(secretKey);
-            datagramSocket = new DatagramSocket(port);
+            datagramSocket = new DatagramSocket(udpPort);
             datagramSocket.setSoTimeout(1000);
         } catch (Exception ex) {
             clientState.updateConnectionState(ConnectionState.DISCONNECTED);
@@ -161,13 +181,14 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
         }
         clientState.updateFrameAspectRation(SharedConstants.DEFAULT_ASPECT_RATIO);
         clientState.updateRecvBytesPerSec(0L);
+        disposables.dispose();
     }
 
     @Override
     protected void initObservables() {
-        clientState.wrapAsDisposable(clientState.getVisibilityState$(), visibilityState -> {
+        disposables.add(clientState.getVisibilityState$().subscribe(visibilityState -> {
             isThreadActive = visibilityState.equals(VisibilityState.VISIBLE);
             this.visibilityState = visibilityState;
-        });
+        }));
     }
 }

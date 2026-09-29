@@ -37,14 +37,13 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
     private AuthPasswordRes authPasswordRes;
     private PrintWriter printWriter;
     private BufferedReader bufferedReader;
-    private boolean isThreadActive;
+    private volatile boolean isThreadActive;
 
     @Getter
     private final ClientWindow clientWindow;
     @Getter
     private final ClientState clientState;
     private final FastConnectionDetails fastConnectionDetails;
-    private final ClientDatagramSocket clientDatagramSocket;
     private final ConnectionHandler connectionHandler;
     @Getter
     private final ConnectionDetails connectionDetails;
@@ -56,7 +55,6 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
         super();
         this.clientWindow = clientWindow;
         clientState = clientWindow.getClientState();
-        clientDatagramSocket = clientWindow.getClientDatagramSocket();
         fastConnectionDetails = clientWindow.getClientState().getLastEmittedFastConnectionDetails();
         this.connectionHandler = connectionHandler;
         this.connectionDetails = connectionDetails;
@@ -103,9 +101,9 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
                     case CHECK_PASSWORD_RES: {
                         final AuthPasswordRes res = exchangeSSLResponse(AuthPasswordRes.class);
                         if (!res.isValidStatus()) {
-                            connectionHandler.onFailure(connectionDetails, "Invalid password");
                             log.warn("Invalid password. Disconnect from session");
-                            break;
+                            connectionHandler.onFailure(connectionDetails, "Invalid password");
+                            throw new SocketException("Invalid password");
                         }
                         authPasswordRes = res;
                         socketState = SocketState.SEND_CLIENT_DATA_REQ;
@@ -116,10 +114,9 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
                     case SEND_CLIENT_DATA_REQ: {
                         final VideoCanvas videoCanvas = clientWindow.getVideoCanvas();
                         final ClientDatagramSocket clientDatagramSocket = new ClientDatagramSocket(clientWindow,
-                            videoCanvas, videoCanvas.getController());
+                            videoCanvas, videoCanvas.getController(), connectionDetails.getClientPort());
 
-                        clientDatagramSocket.createDatagramSocket(authPasswordRes.getSecretKeyUdp(),
-                            connectionDetails.getClientPort());
+                        clientDatagramSocket.createDatagramSocket(authPasswordRes.getSecretKeyUdp());
                         clientWindow.setClientDatagramSocket(clientDatagramSocket);
 
                         final ConnectionData connectionData = ConnectionData.builder()
@@ -152,6 +149,10 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
 
                         socketState = SocketState.WAITING;
                         log.info("Successfully got video frame details {}", videoFrameDetails);
+                        break;
+                    }
+                    case WAITING: {
+                        Thread.sleep(100);
                         break;
                     }
                 }
@@ -189,8 +190,8 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
     public synchronized void startExecutor() {
         try {
             initSocketAndKeys();
-            startThread();
             isThreadActive = true;
+            startThread();
         } catch (IOException | GeneralSecurityException ex) {
             log.error(ex.getMessage());
             connectionHandler.onFailure(connectionDetails, null);
@@ -203,15 +204,18 @@ public class ClientTcpSocket extends AbstractTcpSocketThread<Socket> {
         log.info("Disconnected with host: {}:{}", fastConnectionDetails.getHostIpAddress(),
             fastConnectionDetails.getHostPort());
 
+        isThreadActive = false;
+
+        final ClientDatagramSocket clientDatagramSocket = clientWindow.getClientDatagramSocket();
+        if (clientDatagramSocket != null) {
+            clientDatagramSocket.stopAndClear();
+            clientWindow.setClientDatagramSocket(null);
+        }
+
         clientState.updateRecvBytesPerSec(0L);
         clientState.updateVisibilityState(VisibilityState.WAITING_FOR_CONNECTION);
         clientState.updateConnectionState(ConnectionState.DISCONNECTED);
         bottomInfobarController.stopConnectionTimer();
-
-        if (clientDatagramSocket != null) {
-            isThreadActive = false;
-            clientDatagramSocket.stopAndClear();
-        }
     }
 
     @Override

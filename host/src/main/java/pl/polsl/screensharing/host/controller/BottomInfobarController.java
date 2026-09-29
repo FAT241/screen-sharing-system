@@ -13,8 +13,8 @@ public class BottomInfobarController extends AbstractBottomInfobarController {
     private final Timer sessionTimer;
     private final Timer streamingTimer;
 
-    private long sessionTime;
-    private long streamingTime;
+    private volatile long sessionTime;
+    private volatile long streamingTime;
 
     public BottomInfobarController(HostWindow hostWindow, BottomInfobar bottomInfobar) {
         super(bottomInfobar);
@@ -45,10 +45,13 @@ public class BottomInfobarController extends AbstractBottomInfobarController {
 
     public void stopStreamingTimer() {
         streamingTimer.stop();
+        sessionTimer.stop();
 
         final HostState state = hostWindow.getHostState();
         state.updateStreamingTime(0L);
+        state.updateSessionTime(0L);
 
         streamingTime = 0;
+        sessionTime = 0;
     }
 }

@@ -69,4 +69,13 @@ public class ClientWindow extends AbstractRootFrame {
     public VideoCanvas getVideoCanvas() {
         return tabbedPaneWindow.getTabbedVideoStreamPanel().getVideoCanvas();
     }
+
+    @Override
+    protected Runnable getShutdownHook() {
+        return () -> {
+            if (clientTcpSocket != null) {
+                clientTcpSocket.stopAndClear();
+            }
+        };
+    }
 }

@@ -7,7 +7,13 @@ Java Swing app (screen sharing via Socket). Project structure and common command
 - JDK 21 at `D:\Java` (javac/java). `JAVA_HOME` is usually NOT set in shell, and `mvn` is NOT on PATH — use the Maven wrapper.
 - Use Maven wrapper for builds: `.\mvnw.cmd`.
 - Shell is Windows PowerShell 5.1. No `&&`; chain with `;` or `if ($?) { ... }`.
-- To build in this session: `$env:JAVA_HOME="D:\Java"; .\mvnw.cmd -q clean package -pl client,host -DskipTests`
+- To build in this session, TWO steps in order (step 2 alone can stay green even when `lib` is broken):
+  ```powershell
+  $env:JAVA_HOME="D:\Java"; .\mvnw.cmd -q clean install -pl lib -DskipTests
+  if ($?) { .\mvnw.cmd -q clean package -pl client,host -DskipTests }
+  ```
+  `-pl client,host` does NOT include `lib` in the reactor, so Maven resolves the **stale `lib` jar from `~/.m2`**.
+  Use `-am` instead of the first step if preferred. `build.cmd` already does both.
 
 ## Build & run (fastest)
 

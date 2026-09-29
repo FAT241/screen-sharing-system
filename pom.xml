@@ -20,6 +20,7 @@
     <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
     <maven-assembly-plugin.version>2.2-beta-5</maven-assembly-plugin.version>
     <maven-clean-plugin.version>3.4.1</maven-clean-plugin.version>
+    <maven-surefire-plugin.version>3.2.3</maven-surefire-plugin.version>
     <!-- dependencies -->
     <logback.version>1.5.17</logback.version>
     <slf4j.version>2.0.17</slf4j.version>
@@ -32,6 +33,7 @@
     <jackson.version>2.15.3</jackson.version>
     <imgscalr.version>4.2</imgscalr.version>
     <flatlaf.version>3.5.4</flatlaf.version>
+    <junit.version>5.10.1</junit.version>
     <!-- config -->
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
@@ -103,6 +105,12 @@
       <artifactId>flatlaf</artifactId>
       <version>${flatlaf.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <dependencyManagement>
@@ -148,6 +156,11 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
       </plugin>
     </plugins>
   </build>

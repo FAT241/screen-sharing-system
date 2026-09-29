@@ -38,11 +38,15 @@ public class Utils {
     }
 
     public static Dimension calcSizeBaseAspectRatio(JComponent component, double aspectRatio) {
-        int containerWidth = component.getWidth() - 10;
-        int containerHeight = component.getHeight() - 10;
+        final int containerWidth = component.getWidth() - 10;
+        final int containerHeight = component.getHeight() - 10;
 
-        int width, height;
+        if (containerWidth <= 0 || containerHeight <= 0 || aspectRatio <= 0) {
+            return new Dimension(0, 0);
+        }
 
+        final int width;
+        final int height;
         if ((double) containerWidth / containerHeight > aspectRatio) {
             height = containerHeight;
             width = (int) (height * aspectRatio);

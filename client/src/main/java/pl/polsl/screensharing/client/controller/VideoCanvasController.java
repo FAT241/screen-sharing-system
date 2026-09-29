@@ -19,7 +19,7 @@ public class VideoCanvasController {
 
     @Getter
     @Setter
-    private BufferedImage receivedImage;
+    private volatile BufferedImage receivedImage;
 
     public VideoCanvasController(VideoCanvas videoCanvas, TabbedVideoStreamPanel tabbedVideoStreamPanel) {
         this.videoCanvas = videoCanvas;

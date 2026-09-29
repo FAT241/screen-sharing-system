@@ -10,6 +10,8 @@ import pl.polsl.screensharing.host.view.HostWindow;
 import pl.polsl.screensharing.lib.net.AbstractTcpSocketThread;
 import pl.polsl.screensharing.lib.net.SocketState;
 
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+
 import javax.swing.*;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -32,6 +34,7 @@ public class ServerTcpSocket extends AbstractTcpSocketThread<ServerSocket> {
     @Getter
     private final SessionDetails sessionDetails;
     private final ConnectionHandler connectionHandler;
+    private final CompositeDisposable disposables = new CompositeDisposable();
 
     public ServerTcpSocket(HostWindow hostWindow, ConnectionHandler connectionHandler) {
         super();
@@ -73,7 +76,24 @@ public class ServerTcpSocket extends AbstractTcpSocketThread<ServerSocket> {
 
     public void sendSignalToClient(SocketState socketState, Long threadId) {
         final ConnectedClientInfo connectedClientInfo = connectedClients.get(threadId);
+        if (connectedClientInfo == null || connectedClientInfo.getClientThread() == null) {
+            log.warn("No connected client with id {}, signal {} skipped.", threadId, socketState);
+            return;
+        }
         connectedClientInfo.getClientThread().sendSignalEvent(socketState);
+    }
+
+    /**
+     * Gửi tín hiệu tới mọi client và chờ ghi xong. Dùng khi sắp đóng socket, vì tín hiệu kiểu cờ
+     * của {@link SendSignalsThread} sẽ không kịp gửi nếu socket bị đóng ngay sau đó.
+     */
+    public void sendSignalToAllClientsAndFlush(SocketState socketState) {
+        for (final Map.Entry<Long, ConnectedClientInfo> entry : connectedClients.entrySet()) {
+            final ClientThread clientThread = entry.getValue().getClientThread();
+            if (clientThread != null) {
+                clientThread.sendSignalAndFlush(socketState);
+            }
+        }
     }
 
     @Override
@@ -101,10 +121,12 @@ public class ServerTcpSocket extends AbstractTcpSocketThread<ServerSocket> {
 
     @Override
     protected void abstractStopAndClear() {
+        // must happen before the socket is closed, otherwise clients never learn why they were dropped
+        sendSignalToAllClientsAndFlush(SocketState.END_UP_SESSION);
         if (serverDatagramSocket != null) {
             serverDatagramSocket.stopAndClear();
         }
-        if (!socket.isClosed()) {
+        if (socket != null && !socket.isClosed()) {
             closeSocket();
         }
         final BottomInfobarController bottomInfobarController = hostWindow.getBottomInfobarController();
@@ -112,12 +134,12 @@ public class ServerTcpSocket extends AbstractTcpSocketThread<ServerSocket> {
         hostState.updateSessionState(SessionState.INACTIVE);
         hostState.updateSentBytesPerSec(0L);
         isEstabilished = false;
-        sendSignalToAllClients(SocketState.END_UP_SESSION);
+        disposables.dispose();
     }
 
     private void initObservables() {
-        hostState.wrapAsDisposable(hostState.getConnectedClientsInfo$(), connectedClients -> {
+        disposables.add(hostState.getConnectedClientsInfo$().subscribe(connectedClients -> {
             this.connectedClients = connectedClients;
-        });
+        }));
     }
 }

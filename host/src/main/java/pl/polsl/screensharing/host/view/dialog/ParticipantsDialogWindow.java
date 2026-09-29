@@ -30,7 +30,7 @@ public class ParticipantsDialogWindow extends AbstractPopupDialog {
     private final JAppIconButton removeAllButton;
     private final JAppIconButton cancelButton;
 
-    private final String[] tableHeaders = {"Thread ID", "Client IP", "Username"};
+    private final String[] tableHeaders = {"Joined", "Client IP", "Username"};
 
     private final JTable table;
     private final DefaultTableModel tableModel;
@@ -98,7 +98,7 @@ public class ParticipantsDialogWindow extends AbstractPopupDialog {
             for (final Map.Entry<Long, ConnectedClientInfo> clientInfoEntry : clientsInfo.entrySet()) {
                 final ConnectedClientInfo clientInfo = clientInfoEntry.getValue();
                 model.addRow(new Object[]{
-                    clientInfoEntry.getKey(),
+                    clientInfo.getFormattedJoinTime(),
                     clientInfo.getIpAddress() + ":" + clientInfo.getUdpPort(),
                     clientInfo.getUsername()
                 });

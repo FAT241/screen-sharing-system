@@ -34,12 +34,16 @@ public abstract class AbstractRootFrame extends JFrame {
         setMinimumSize(UiScale.scale(new Dimension(960, 540)));
         setLocation(getMotherScreenCenter());
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        addWindowListener(new GuiWindowAdapter(this, disposableProvider));
+        addWindowListener(new GuiWindowAdapter(this, disposableProvider, getShutdownHook()));
         setTitle(appType.getRootWindowTitle());
         setLayout(new BorderLayout());
         add(rootPanel, BorderLayout.CENTER);
         extendsFrame(this, rootPanel);
         setVisible(true);
+    }
+
+    protected Runnable getShutdownHook() {
+        return null;
     }
 
     private Point getMotherScreenCenter() {

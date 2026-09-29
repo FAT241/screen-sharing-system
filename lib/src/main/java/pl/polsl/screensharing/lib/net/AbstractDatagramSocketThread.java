@@ -10,7 +10,7 @@ import java.net.DatagramSocket;
 public abstract class AbstractDatagramSocketThread extends Thread {
     protected DatagramSocket datagramSocket;
     protected CryptoSymmetricHelper cryptoSymmetricHelper;
-    protected boolean isThreadActive;
+    protected volatile boolean isThreadActive;
 
     protected AbstractDatagramSocketThread() {
         cryptoSymmetricHelper = new CryptoSymmetricHelper();
@@ -20,8 +20,12 @@ public abstract class AbstractDatagramSocketThread extends Thread {
         isThreadActive = false;
         log.info("Stopping datagram thread with TID {}", getName());
         log.debug("Collected detatched thread with TID {} by GC", getName());
-        datagramSocket.disconnect();
-        datagramSocket.close();
+        if (datagramSocket != null) {
+            datagramSocket.disconnect();
+            datagramSocket.close();
+        } else {
+            log.warn("Datagram socket was never created, nothing to close");
+        }
         abstractStopAndClear();
     }
 
@@ -38,7 +42,7 @@ public abstract class AbstractDatagramSocketThread extends Thread {
     protected void postStart() {
     }
 
-    public abstract void createDatagramSocket(byte[] secretKey, int port);
+    public abstract void createDatagramSocket(byte[] secretKey);
 
     protected abstract void abstractStopAndClear();
 

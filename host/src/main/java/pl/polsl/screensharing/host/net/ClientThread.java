@@ -17,6 +17,8 @@ import pl.polsl.screensharing.lib.net.payload.AuthPasswordRes;
 import pl.polsl.screensharing.lib.net.payload.ConnectionData;
 import pl.polsl.screensharing.lib.net.payload.VideoFrameDetails;
 
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -46,11 +48,13 @@ public class ClientThread extends Thread {
     @Getter
     private PublicKey clientPublicKey;
     private SocketState socketState;
+    private final Object writeLock = new Object();
     private PrintWriter printWriter;
     @Getter
     private long threadId;
     private ConcurrentMap<Long, ConnectedClientInfo> connectedClients;
-    private boolean isThreadActive;
+    private volatile boolean isThreadActive;
+    private final CompositeDisposable disposables = new CompositeDisposable();
 
     public ClientThread(Socket socket, ServerTcpSocket serverTcpSocket) {
         this.socket = socket;
@@ -66,14 +70,27 @@ public class ClientThread extends Thread {
         initObservables();
     }
 
+    public void sendLine(String line) {
+        synchronized (writeLock) {
+            if (printWriter == null) {
+                log.warn("Drop outgoing line, socket writer already closed: {}", line);
+                return;
+            }
+            printWriter.println(line);
+            printWriter.flush();
+        }
+    }
+
+    public void sendSignalAndFlush(SocketState state) {
+        sendSignalsThread.sendSignalNow(state);
+    }
+
     @Override
     public void run() {
         log.info("Started client thread with PID {}", getId());
-        try (
+        try {
             final BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            final PrintWriter out = new PrintWriter(socket.getOutputStream(), true)
-        ) {
-            printWriter = out;
+            printWriter = new PrintWriter(socket.getOutputStream(), true);
             while (socket.isConnected() && isThreadActive) {
                 final String line = in.readLine();
                 if (line == null) {
@@ -86,8 +103,9 @@ public class ClientThread extends Thread {
         } catch (Exception ex) {
             log.error(ex.getMessage());
         }
+        // the shared PrintWriter is deliberately not closed here: SendSignalsThread still needs it.
+        // stopAndClose() closes the socket, which tears down both streams at once.
         stopAndClose();
-        System.gc();
     }
 
     public void sendSignalEvent(SocketState eventSignalState) {
@@ -115,7 +133,7 @@ public class ClientThread extends Thread {
             case EXHANGE_KEYS_REQ: {
                 clientPublicKey = cryptoAsymmetricHelper.base64ToPublicKey(data);
                 final String keyEnc = cryptoAsymmetricHelper.publicKeyToBase64();
-                printWriter.println(keyEnc);
+                sendLine(keyEnc);
                 log.info("(to-way exchange) Save client public key and send server public key to the client");
                 break;
             }
@@ -176,7 +194,7 @@ public class ClientThread extends Thread {
         final Object resData = callback.apply(objectMapper.readValue(decrypted, parseClazz));
         final String rawResponse = objectMapper.writeValueAsString(resData);
         final String encrypted = cryptoAsymmetricHelper.encrypt(rawResponse, clientPublicKey);
-        printWriter.println(encrypted);
+        sendLine(encrypted);
         onEnd.accept(resData);
     }
 
@@ -205,15 +223,24 @@ public class ClientThread extends Thread {
         hostState.updateConnectedClients(connectedClients);
         log.info("Removed user with details {} from all connected users list", removed);
         isThreadActive = false;
+        if (Thread.currentThread() != sendSignalsThread) {
+            sendSignalsThread.interrupt();
+            try {
+                sendSignalsThread.join(2000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
         try {
             socket.close();
         } catch (IOException ignore) {
         }
+        disposables.dispose();
     }
 
     private void initObservables() {
-        hostState.wrapAsDisposable(hostState.getConnectedClientsInfo$(), connectedClients -> {
+        disposables.add(hostState.getConnectedClientsInfo$().subscribe(connectedClients -> {
             this.connectedClients = new ConcurrentHashMap<>(connectedClients);
-        });
+        }));
     }
 }

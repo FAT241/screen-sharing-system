@@ -29,7 +29,7 @@ public class VideoCanvasController extends AbstractPerTickRunner {
     private final Point cursorPos;
 
     @Getter
-    private BufferedImage rawImage;
+    private volatile BufferedImage rawImage;
     private BufferedImage grabbedImage;
     private BufferedImage renderImage;
 
@@ -94,7 +94,7 @@ public class VideoCanvasController extends AbstractPerTickRunner {
             rawImage = grabbedImage;
         }
         // błąd przy przełączeniu rozdzielczości ekranu w trakcie ładowania
-        if (width >= 0 && height >= 0) {
+        if (width > 0 && height > 0) {
             renderImage = Scalr.resize(grabbedImage, width, height);
         }
         videoCanvas.repaint();

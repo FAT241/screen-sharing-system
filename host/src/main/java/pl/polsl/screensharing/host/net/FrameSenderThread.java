@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import pl.polsl.screensharing.host.state.HostState;
 import pl.polsl.screensharing.lib.net.CryptoSymmetricHelper;
 
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -20,6 +22,7 @@ public class FrameSenderThread extends Thread {
 
     private ConcurrentMap<Long, ConnectedClientInfo> connectedClients;
     private final BlockingQueue<byte[]> sendPackagesQueue;
+    private final CompositeDisposable disposables = new CompositeDisposable();
 
     public FrameSenderThread(ServerDatagramSocket serverDatagramSocket) {
         this.serverDatagramSocket = serverDatagramSocket;
@@ -44,9 +47,13 @@ public class FrameSenderThread extends Thread {
                         InetAddress.getByName(client.getIpAddress()), client.getUdpPort());
                     datagramSocket.send(packet);
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (InterruptedException ex) {
+                    break;
+                } catch (Exception ex) {
+                    log.warn("Error sending frame to client: {}", ex.getMessage());
+                }
         }
+        disposables.dispose();
         log.info("Stopping frame sender thread with TID {}", getName());
         log.debug("Collected frame sender thread with TID {} by GC", getName());
     }
@@ -60,8 +67,8 @@ public class FrameSenderThread extends Thread {
     }
 
     private void initObservables() {
-        hostState.wrapAsDisposable(hostState.getConnectedClientsInfo$(), connectedClients -> {
+        disposables.add(hostState.getConnectedClientsInfo$().subscribe(connectedClients -> {
             this.connectedClients = new ConcurrentHashMap<>(connectedClients);
-        });
+        }));
     }
 }

@@ -11,6 +11,8 @@ import pl.polsl.screensharing.host.view.HostWindow;
 import pl.polsl.screensharing.lib.UnoperableException;
 import pl.polsl.screensharing.lib.net.AbstractDatagramSocketThread;
 
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
@@ -40,6 +42,7 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
 
     private QualityLevel qualityLevel;
     private boolean isShowing;
+    private final CompositeDisposable disposables = new CompositeDisposable();
 
     public ServerDatagramSocket(HostWindow hostWindow, VideoCanvasController videoCanvasController) {
         super();
@@ -117,10 +120,13 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
                 }
                 sleep(1);
             } catch (SocketTimeoutException | PortUnreachableException ex) {
-                JOptionPane.showMessageDialog(hostWindow, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                log.error("Unexpected network error. Cause: {}", ex.getMessage());
+                final String message = ex.getMessage();
+                SwingUtilities.invokeLater(
+                    () -> JOptionPane.showMessageDialog(hostWindow, message, "Error", JOptionPane.ERROR_MESSAGE));
+                log.error("Unexpected network error. Cause: {}", message);
                 break;
-            } catch (Exception ignored) {
+            } catch (Exception ex) {
+                log.warn("Error processing video frame: {}", ex.getMessage());
             }
             if (logTimer >= BILION * 6L) {
                 if (sentBytes > 0) {
@@ -142,21 +148,24 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
     }
 
     @Override
-    public void createDatagramSocket(byte[] secretKey, int port) {
+    public void createDatagramSocket(byte[] secretKey) {
         try {
             cryptoSymmetricHelper.init(secretKey);
-            datagramSocket = new DatagramSocket();
+            // host is the UDP sender: bind an ephemeral port instead of advertising a fixed one
+            datagramSocket = new DatagramSocket(0);
         } catch (Exception ex) {
             throw new UnoperableException(ex);
         }
     }
 
     @Override
-    public void abstractStopAndClear() {
+    protected void abstractStopAndClear() {
         hostState.updateStreamingState(StreamingState.STOPPED);
         hostState.updateRealFpsBuffer(0);
+        // without this the sender stays parked in take() forever and leaks on every start/stop cycle
+        frameSenderThread.interrupt();
         sendPackagesQueue.clear();
-        System.gc();
+        disposables.dispose();
     }
 
     @Override
@@ -165,38 +174,48 @@ public class ServerDatagramSocket extends AbstractDatagramSocketThread {
     }
 
     private byte[] loadImage() throws IOException {
-        final ByteArrayOutputStream compressed = new ByteArrayOutputStream();
-        final ImageOutputStream outputStream = ImageIO.createImageOutputStream(compressed);
-        BufferedImage rawImage = videoCanvasController.getRawImage();
-
-        final ImageWriter jpgWriter = ImageIO.getImageWritersByFormatName("JPEG").next();
-        final ImageWriteParam jpgWriteParam = jpgWriter.getDefaultWriteParam();
-        jpgWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-        jpgWriteParam.setCompressionQuality(qualityLevel.getJpegLevel());
-        jpgWriter.setOutput(outputStream);
-        if (rawImage.getWidth() > MAX_FRAME_WIDTH || rawImage.getHeight() > MAX_FRAME_HEIGHT) {
-            final int newHeight = (int) ((double) MAX_FRAME_WIDTH / rawImage.getWidth() * rawImage.getHeight());
-            rawImage = Scalr.resize(rawImage, MAX_FRAME_WIDTH, newHeight);
+        final BufferedImage rawImage = videoCanvasController.getRawImage();
+        if (rawImage == null) {
+            throw new IOException("No screen frame captured yet");
         }
-        jpgWriter.write(null, new IIOImage(rawImage, null, null), jpgWriteParam);
-
-        final byte[] compressedData = compressed.toByteArray();
-
-        jpgWriter.dispose();
-        if (outputStream != null) {
-            outputStream.close();
+        final BufferedImage scaledImage = fitIntoFrameLimits(rawImage);
+        try (
+            final ByteArrayOutputStream compressed = new ByteArrayOutputStream();
+            final ImageOutputStream outputStream = ImageIO.createImageOutputStream(compressed)
+        ) {
+            final ImageWriter jpgWriter = ImageIO.getImageWritersByFormatName("JPEG").next();
+            try {
+                final ImageWriteParam jpgWriteParam = jpgWriter.getDefaultWriteParam();
+                jpgWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                jpgWriteParam.setCompressionQuality(qualityLevel.getJpegLevel());
+                jpgWriter.setOutput(outputStream);
+                jpgWriter.write(null, new IIOImage(scaledImage, null, null), jpgWriteParam);
+            } finally {
+                jpgWriter.dispose();
+            }
+            return compressed.toByteArray();
         }
-        compressed.close();
-        return compressedData;
+    }
+
+    private BufferedImage fitIntoFrameLimits(BufferedImage rawImage) {
+        final double widthScale = (double) MAX_FRAME_WIDTH / rawImage.getWidth();
+        final double heightScale = (double) MAX_FRAME_HEIGHT / rawImage.getHeight();
+        final double scale = Math.min(1.0, Math.min(widthScale, heightScale));
+        if (scale >= 1.0) {
+            return rawImage;
+        }
+        final int newWidth = Math.max(1, (int) (rawImage.getWidth() * scale));
+        final int newHeight = Math.max(1, (int) (rawImage.getHeight() * scale));
+        return Scalr.resize(rawImage, newWidth, newHeight);
     }
 
     @Override
     protected void initObservables() {
-        hostState.wrapAsDisposable(hostState.getStreamingQualityLevel$(), qualityLevel -> {
+        disposables.add(hostState.getStreamingQualityLevel$().subscribe(qualityLevel -> {
             this.qualityLevel = qualityLevel;
-        });
-        hostState.wrapAsDisposable(hostState.isScreenIsShowForParticipants$(), isShowing -> {
+        }));
+        disposables.add(hostState.isScreenIsShowForParticipants$().subscribe(isShowing -> {
             this.isShowing = isShowing;
-        });
+        }));
     }
 }

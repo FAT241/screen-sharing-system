@@ -9,6 +9,7 @@ import pl.polsl.screensharing.host.view.dialog.ParticipantsDialogWindow;
 import pl.polsl.screensharing.lib.net.SocketState;
 
 import javax.swing.*;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -24,6 +25,10 @@ public class ParticipantsController {
         final HostState hostState = hostWindow.getHostState();
 
         final int selectedRow = table.getSelectedRow();
+        final ConcurrentMap<Long, ConnectedClientInfo> sessionParticipants = hostState.getLastEmittedConnectedClients();
+        if (selectedRow < 0 || selectedRow >= sessionParticipants.size()) {
+            return;
+        }
 
         final String clientIp = getTableValue(1);
         final String clientUsername = getTableValue(2);
@@ -35,13 +40,13 @@ public class ParticipantsController {
         if (result != JOptionPane.YES_OPTION) {
             return;
         }
-        final ConcurrentMap<Long, ConnectedClientInfo> sessionParticipants = hostState.getLastEmittedConnectedClients();
-        if (selectedRow < 0 || selectedRow >= sessionParticipants.size()) {
-            return;
-        }
-        final Long threadId = (long) table.getModel().getValueAt(selectedRow, 0);
-        final Optional<Long> removedOptional = sessionParticipants.keySet().stream()
-            .filter(connectedClientInfo -> connectedClientInfo.equals(threadId))
+        final Optional<Long> removedOptional = sessionParticipants.entrySet().stream()
+            .filter(entry -> {
+                final ConnectedClientInfo info = entry.getValue();
+                final String ipPort = info.getIpAddress() + ":" + info.getUdpPort();
+                return ipPort.equals(clientIp) && info.getUsername().equals(clientUsername);
+            })
+            .map(Map.Entry::getKey)
             .findFirst();
         if (!removedOptional.isPresent()) {
             return;

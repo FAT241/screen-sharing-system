@@ -82,6 +82,19 @@ public class HostWindow extends AbstractRootFrame {
         });
     }
 
+    @Override
+    protected Runnable getShutdownHook() {
+        return () -> {
+            if (serverTcpSocket != null) {
+                serverTcpSocket.stopAndClear();
+            }
+            final VideoCanvas videoCanvas = getVideoCanvas();
+            if (videoCanvas != null && videoCanvas.getController() != null) {
+                videoCanvas.getController().stopRunner();
+            }
+        };
+    }
+
     public BottomInfobarController getBottomInfobarController() {
         return bottomInfobar.getBottomInfobarController();
     }

@@ -11,7 +11,7 @@ import pl.polsl.screensharing.lib.net.payload.KickReason;
 import pl.polsl.screensharing.lib.net.payload.SignalState;
 import pl.polsl.screensharing.lib.net.payload.VideoFrameDetails;
 
-import java.io.PrintWriter;
+import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
 
@@ -23,7 +23,6 @@ public class SendSignalsThread extends Thread {
     private final ObjectMapper objectMapper;
     private final CryptoAsymmetricHelper cryptoAsymmetricHelper;
 
-    private PrintWriter printWriter;
     @Setter
     private SocketState eventSignalState;
 
@@ -36,28 +35,44 @@ public class SendSignalsThread extends Thread {
         objectMapper = new ObjectMapper();
     }
 
+    /**
+     * Gửi tín hiệu ngay trên thread gọi và flush trước khi trả về.
+     * Dùng cho các tín hiệu phải chắc chắn tới client trước khi socket bị đóng
+     * (END_UP_SESSION, KICK_FROM_SESSION) — không được đi qua cờ async của event loop.
+     */
+    public void sendSignalNow(SocketState state) {
+        try {
+            dispatchSignal(state);
+        } catch (Exception ex) {
+            log.warn("Failed to send {} signal: {}", state, ex.getMessage());
+        }
+    }
+
     private void signalEventLoop() throws Exception {
-        switch (eventSignalState) {
-            // sygnał w przypadku uruchomienia streamowania ekranu
+        if (SocketState.WAITING.equals(eventSignalState)) {
+            Thread.sleep(50);
+            return;
+        }
+        dispatchSignal(eventSignalState);
+    }
+
+    private void dispatchSignal(SocketState state) throws Exception {
+        switch (state) {
             case EVENT_START_STREAMING: {
                 final VideoFrameDetails videoFrameDetails = VideoFrameDetails.builder()
                     .aspectRatio(Utils.calcAspectRatio(hostWindow.getVideoCanvas().getController().getRawImage()))
                     .streamingSignalState(clientThread.determinateStreamingState())
                     .build();
                 performSSLSignal(videoFrameDetails, SocketState.EVENT_START_STREAMING);
-                eventSignalState = SocketState.WAITING;
                 log.info("(signal event) Send start sharing screen event with data {}", videoFrameDetails);
                 break;
             }
-            // sygnał w przypadku zatrzymania streamowania ekranu
             case EVENT_STOP_STREAMING: {
                 final SignalState<Boolean> signalState = new SignalState<>(true);
                 performSSLSignal(signalState, SocketState.EVENT_STOP_STREAMING);
-                eventSignalState = SocketState.WAITING;
                 log.info("(signal event) Send stop sharing screen event with data {}", signalState);
                 break;
             }
-            // sygnał w przypadku pokazania/showania ekranu przez hosta
             case EVENT_TOGGLE_SCREEN_VISIBILITY: {
                 final VideoFrameDetails videoFrameDetails = VideoFrameDetails.builder()
                     .aspectRatio(Utils.calcAspectRatio(hostWindow.getVideoCanvas().getController().getRawImage()))
@@ -65,39 +80,47 @@ public class SendSignalsThread extends Thread {
                     .build();
 
                 performSSLSignal(videoFrameDetails, SocketState.EVENT_TOGGLE_SCREEN_VISIBILITY);
-                eventSignalState = SocketState.WAITING;
                 log.info("(signal event) Send show/hide screen event with data {}", videoFrameDetails);
                 break;
             }
-            // sygnał w przypadku wyrzucenia użytkownika/użytkowników z sesji
             case KICK_FROM_SESSION: {
                 final KickReason kickReason = new KickReason("You has been kicked from session.");
                 performSSLSignal(kickReason, SocketState.KICK_FROM_SESSION);
-                socket.close();
-                eventSignalState = SocketState.WAITING;
                 log.info("(signal event) Send kick user/s event with data {}", kickReason);
                 break;
             }
-            // sygnał w przypadku zakończenia sesji
             case END_UP_SESSION: {
                 final KickReason kickReason = new KickReason("Session has been ended.");
                 performSSLSignal(kickReason, SocketState.END_UP_SESSION);
-                socket.close();
-                eventSignalState = SocketState.WAITING;
                 log.info("(signal event) Send end up session event with data {}", kickReason);
                 break;
             }
+            default:
+                return;
+        }
+        eventSignalState = SocketState.WAITING;
+        if (SocketState.KICK_FROM_SESSION.equals(state) || SocketState.END_UP_SESSION.equals(state)) {
+            closeSocketQuietly();
+        }
+    }
+
+    private void closeSocketQuietly() {
+        try {
+            socket.close();
+        } catch (IOException ex) {
+            log.debug("Socket already closed: {}", ex.getMessage());
         }
     }
 
     @Override
     public void run() {
         log.info("Started client send events thread with PID {}", getId());
-        try (final PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-            printWriter = out;
+        try {
             while (socket.isConnected() && clientThread.isAlive()) {
                 signalEventLoop();
             }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         } catch (SocketException ignored) {
         } catch (Exception ex) {
             log.error(ex.getMessage());
@@ -116,6 +139,6 @@ public class SendSignalsThread extends Thread {
     private void performSSLSignal(Object resData, SocketState signal) throws Exception {
         final String rawResponse = objectMapper.writeValueAsString(resData);
         final String encrypted = cryptoAsymmetricHelper.encrypt(rawResponse, clientThread.getClientPublicKey());
-        printWriter.println(signal.generateBody(encrypted));
+        clientThread.sendLine(signal.generateBody(encrypted));
     }
 }

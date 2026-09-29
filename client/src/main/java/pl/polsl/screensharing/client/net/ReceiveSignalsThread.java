@@ -127,10 +127,10 @@ public class ReceiveSignalsThread extends Thread {
         // wątku aby zaoszczędzić zasoby)
         if (!clientWindow.getClientDatagramSocket().isAlive()) {
             final ClientDatagramSocket clientDatagramSocket = new ClientDatagramSocket(clientWindow,
-                videoCanvas, videoCanvas.getController());
+                videoCanvas, videoCanvas.getController(), details.getClientPort());
 
             clientWindow.setClientDatagramSocket(clientDatagramSocket);
-            clientDatagramSocket.createDatagramSocket(res.getSecretKeyUdp(), details.getClientPort());
+            clientDatagramSocket.createDatagramSocket(res.getSecretKeyUdp());
 
             clientDatagramSocket.start();
         }
