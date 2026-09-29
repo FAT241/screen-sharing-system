@@ -7,13 +7,18 @@ Java Swing app (screen sharing via Socket). Project structure and common command
 - JDK 21 at `D:\Java` (javac/java). `JAVA_HOME` is usually NOT set in shell, and `mvn` is NOT on PATH — use the Maven wrapper.
 - Use Maven wrapper for builds: `.\mvnw.cmd`.
 - Shell is Windows PowerShell 5.1. No `&&`; chain with `;` or `if ($?) { ... }`.
-- To build in this session, TWO steps in order (step 2 alone can stay green even when `lib` is broken):
+- To build in this session, THREE steps in order (step 3 alone can stay green even when `lib` is broken):
   ```powershell
-  $env:JAVA_HOME="D:\Java"; .\mvnw.cmd -q clean install -pl lib -DskipTests
+  .\mvnw.cmd -q -N install
+  if ($?) { .\mvnw.cmd -q clean install -pl lib -DskipTests }
   if ($?) { .\mvnw.cmd -q clean package -pl client,host -DskipTests }
   ```
   `-pl client,host` does NOT include `lib` in the reactor, so Maven resolves the **stale `lib` jar from `~/.m2`**.
-  Use `-am` instead of the first step if preferred. `build.cmd` already does both.
+  The first step (`-N install`) only installs the root POM without building modules or cleaning `.bin`.
+  Without it a **fresh machine** fails in step 3: resolving the installed `lib` descriptor needs the root
+  POM in `~/.m2`. Do NOT use `-am` for that step — it pulls the root POM into the reactor, which makes
+  `clean` wipe `.bin` and fail with "file is being used by another process" while host/client is running.
+  `build.cmd` already does all three.
 
 ## Build & run (fastest)
 

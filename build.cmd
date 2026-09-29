@@ -32,15 +32,26 @@ set "JDKVER=khong ro"
 if exist "%JAVA_HOME%\release" for /f "tokens=2 delims==" %%v in ('findstr /b /c:"JAVA_VERSION=" "%JAVA_HOME%\release" 2^>nul') do set "JDKVER=%%~v"
 echo JAVA_HOME = %JAVA_HOME%
 echo Java      = %JDKVER%
-echo [1/2] Build + cai dat thu vien dung chung (lib)...
-call "%~dp0mvnw.cmd" -q clean install -pl lib -DskipTests
+echo [1/3] Cai pom goc vao local repo...
+rem -N = chi cai pom goc, KHONG build module nao va KHONG clean .bin.
+rem Thieu buoc nay, buoc [3/3] se khong doc duoc mo ta cua lib
+rem tren may moi vi pom goc chua co trong local repo.
+call "%~dp0mvnw.cmd" -q -N install
 if errorlevel 1 (
-    echo Build that bai o buoc 1 - lib!
+    echo Build that bai o buoc 1 - pom goc!
     pause
     exit /b 1
 )
 
-echo [2/2] Build host + client...
+echo [2/3] Build + cai dat thu vien dung chung (lib)...
+call "%~dp0mvnw.cmd" -q clean install -pl lib -DskipTests
+if errorlevel 1 (
+    echo Build that bai o buoc 2 - lib!
+    pause
+    exit /b 1
+)
+
+echo [3/3] Build host + client...
 call "%~dp0mvnw.cmd" -q clean package -pl client,host -DskipTests
 if errorlevel 1 (
     echo Build that bai!
