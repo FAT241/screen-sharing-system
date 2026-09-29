@@ -14,16 +14,14 @@ import pl.polsl.screensharing.lib.net.AbstractDatagramSocketThread;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 
 import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.util.Arrays;
 
 import static pl.polsl.screensharing.lib.SharedConstants.BILION;
 import static pl.polsl.screensharing.lib.SharedConstants.FRAME_SIZE;
 import static pl.polsl.screensharing.lib.SharedConstants.IV_SIZE;
-import static pl.polsl.screensharing.lib.SharedConstants.PACKAGE_SIZE;
 
 @Slf4j
 public class ClientDatagramSocket extends AbstractDatagramSocketThread {
@@ -50,23 +48,24 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
     @Override
     public void run() {
         log.info("Started datagram thread with TID {}", getName());
+        final ByteArrayOutputStream receivedDataBuffer = new ByteArrayOutputStream();
 
         final int debugBytesLength = 2; // ilość bajtów debugujących
-        final int payloadStride = PACKAGE_SIZE - debugBytesLength;
         // bufor na dane przychodzące (dane + bufor debugujący + IV)
         byte[] receiveBuffer = new byte[FRAME_SIZE + IV_SIZE];
         byte countOfPackages; // liczba pakietów uzyskana przez obiornik
         byte packageIteration; // iterator pakietów uzyskany przez obiornik
+        boolean isCorrupted = false;
         boolean isStarted = false;
+        byte prevPackageIteration = 1;
 
-        // Klatka składana jest w buforze o stałym rozmiarze, a każdy pakiet trafia na
-        // offset wyliczony z jego numeru, a nie dopisywany na końcu. Dopisywanie w kolejności
-        // nadania psuło obraz, gdy pakiety przychodziły w innej kolejności - tak się dzieje
-        // w sieciach komórkowych, gdzie kolejność UDP nie jest gwarantowana.
-        byte[] frameBuffer = null;
-        boolean[] receivedFlags = null;
-        int receivedPackets = 0;
-        int frameDataLength = 0;
+        // Wątek odbierający dane nadawane na kanał UDP przez hosta. Posiada prosty system korekcji błędów. Główna pętla
+        // co iteracje pobiera kolejne paczki nadsyłane przez hosta. Z paczek ~32kb pobierany jest 3 bajtowy ciąg
+        // debugujący oraz pozostałe bajty (strumień JPEG). Dane w ciągu debugującym weryfikują poprawność pod względem:
+        // - ilości paczek na jedną klatkę
+        // - kolejności paczek
+        // Jeśli zostanie wykryty problem z ilością paczek na jedną klatkę lub paczki będa w złej kolejności, bufor jest
+        // odrzucany a klatka nie jest renderowana.
 
         long lastTime = System.nanoTime();
         long currentTime;
@@ -101,71 +100,49 @@ public class ClientDatagramSocket extends AbstractDatagramSocketThread {
                     }
                 }
 
-                // pierwszy fragment klatki oznacza start nowej klatki; poprzednia, jeśli niekompletna, jest
-                // porzucana
-                if (packageIteration == 1) {
-                    if (frameBuffer != null && receivedPackets < countOfPackages) {
-                        corruptedFrames++;
-                    }
-                    final int capacity = countOfPackages * FRAME_SIZE;
-                    if (capacity <= 0) {
-                        continue;
-                    }
-                    frameBuffer = new byte[capacity];
-                    receivedFlags = new boolean[countOfPackages];
-                    receivedPackets = 0;
-                    frameDataLength = 0;
+                // resync: jeśli otrzymano pierwszy fragment nowej klatki,
+                // ale bufor nie jest pusty (poprzednia klatka niekompletna) — porzuć starą klatkę
+                if (packageIteration == 1 && receivedDataBuffer.size() > 0) {
+                    receivedDataBuffer.reset();
+                    isCorrupted = false;
+                    corruptedFrames++;
                 }
 
-                if (frameBuffer == null) {
-                    continue;
-                }
-                final int index = packageIteration - 1;
-                if (index < 0 || index >= countOfPackages) {
-                    continue;
-                }
-                // every packet carries a trailing IV-sized pad, which is not image data, and
-                // only the last packet is short. The stride is therefore the full payload
-                // minus the debug bytes, so consecutive packets stay gapless.
-                final int dataLength = decrypted.length - debugBytesLength - IV_SIZE;
-                final int offset = index * payloadStride;
-                if (dataLength <= 0 || offset + dataLength > frameBuffer.length) {
-                    continue; // niespójne z deklarowaną liczbą pakietów
-                }
-                if (!receivedFlags[index]) {
-                    receivedFlags[index] = true;
-                    receivedPackets++;
-                    frameDataLength = Math.max(frameDataLength, offset + dataLength);
-                }
+                // dodaj odszyfrowane dane z pominięciem bajtów debugujących i 128 bitowego IV do bufora
+                receivedDataBuffer.write(decrypted, debugBytesLength,
+                    decrypted.length - debugBytesLength);
 
-                // klatka gotowa dopiero gdy zebrało się komplet pakietów, niezależnie od kolejności
-                if (receivedPackets == countOfPackages) {
-                    final BufferedImage image = ImageIO.read(
-                        new ByteArrayInputStream(Arrays.copyOf(frameBuffer, frameDataLength)));
-                    if (image != null) {
-                        videoCanvasController.setReceivedImage(image);
+                // jeśli wykryje, że klatki są w niewłaściwej kolejności, ustaw klatkę jako corrupted
+                if (prevPackageIteration < packageIteration - 1) {
+                    isCorrupted = true;
+                }
+                prevPackageIteration = packageIteration;
+
+                // poskładaj klatki i wygeneruj obraz jeśli przesłano wszystkie
+                // fragmenty klatki oraz nie są one uszkodzone
+                if (countOfPackages == packageIteration) {
+                    if (!isCorrupted) {
+                        final byte[] receivedData = receivedDataBuffer.toByteArray();
+                        final ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(receivedData);
+                        videoCanvasController.setReceivedImage(ImageIO.read(byteArrayInputStream));
                         videoCanvas.repaint();
+                        byteArrayInputStream.close();
                     } else {
                         corruptedFrames++;
                     }
-                    frameBuffer = null;
-                    receivedFlags = null;
-                    receivedPackets = 0;
-                    frameDataLength = 0;
+                    isCorrupted = false;
+                    receivedDataBuffer.reset(); // wyczyść bufor na fragmenty klatek
                 }
             } catch (java.net.SocketTimeoutException ex) {
                 log.debug("UDP receive timeout, waiting for data...");
-                frameBuffer = null;
-                receivedFlags = null;
-                receivedPackets = 0;
-                frameDataLength = 0;
+                isCorrupted = false;
+                receivedDataBuffer.reset();
                 isStarted = false;
+                prevPackageIteration = 1;
             } catch (Exception ex) {
                 log.warn("Error receiving UDP frame: {}", ex.getMessage());
-                frameBuffer = null;
-                receivedFlags = null;
-                receivedPackets = 0;
-                frameDataLength = 0;
+                isCorrupted = false;
+                receivedDataBuffer.reset();
             }
             if (logTimer >= BILION * 6L) {
                 if (recvBytes > 0) {
